@@ -1,0 +1,17 @@
+.{
+    .name = .wwisemap,
+    .version = "2.3.0",
+    .fingerprint = 0x1be51950817111c2,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .sqlite = .{
+            .url = "https://sqlite.org/2026/sqlite-amalgamation-3530400.zip",
+            .hash = "N-V-__8AAGVtrgCcOcmjrOJnagmnRyMrcKaOo09KbU-vu8w8",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
