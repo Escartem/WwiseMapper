@@ -40,6 +40,8 @@ When adding data to the db it must be formatted to a json file with a list of pa
 
 The v1 parser does it automatically, for v2 and external sources it will try its best to convert to this format
 
+TXT/TSV imports accept paths with or without an audio extension. The final `.wem`, `.wav`, `.ogg`, `.mp3`, `.flac`, or `.opus` extension is converted to `.wem` (case-insensitive). Other suffixes are preserved as part of the name, so extensionless names such as `chapter4_64.5_danfeng_101` keep their dots.
+
 ## Contribute
 
 If you add more data, feel free to open a PR with the updated db file :)

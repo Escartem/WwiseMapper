@@ -108,7 +108,7 @@ pub fn build(ctx: utils.Ctx, opts: Options) !Result {
         var uniq: std.StringArrayHashMapUnmanaged(void) = .empty;
         var old_size: usize = 0;
         for (paths) |e| {
-            const stem = e[0 .. std.mem.indexOfScalar(u8, e, '.') orelse e.len]; // remove extension
+            const stem = if (std.ascii.endsWithIgnoreCase(e, ".wem")) e[0 .. e.len - 4] else e;
             if (stem.len == 0) continue; // empty security
             old_size += 1;
             try uniq.put(alloc, stem, {}); // keeps first seen order, set order was random anyway
@@ -559,4 +559,48 @@ test "i ponder" {
     // fnv(b"english(us)\\vo_aq\\vo_paimon\\vo_xmaq004_2_paimon_01.wem") from wwiseMap_2.py
     try std.testing.expectEqual(@as(u64, 0x94043ecf66cd4982), fnv("english(us)\\vo_aq\\vo_paimon\\vo_xmaq004_2_paimon_01.wem"));
     try std.testing.expectEqual(@as(u64, 0xcbf29ce484222325), fnv(""));
+}
+
+test "build preserves decimal paths and their voice hashes" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var env = std.process.Environ.Map.init(a);
+    defer env.deinit();
+    @import("log.zig").init(io);
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const out = try std.fmt.allocPrint(a, ".zig-cache/tmp/{s}/decimal.map", .{tmp.sub_path});
+    const result = try build(.{ .io = io, .alloc = a, .env = &env }, .{
+        .game = .hkrpg,
+        .ver = "4.6",
+        .paths = &.{
+            "voice\\chapter4\\64.5\\danfeng\\chapter4_64.5_danfeng_101.wem",
+            "voice\\chapter4\\64.5\\danheng\\chapter4_64.5_danheng_101.wem",
+            "voice\\chapter4\\64\\hysilens\\chapter4_64_hysilens_113_m.wem",
+        },
+        .out = out,
+    });
+    const bytes = try Io.Dir.cwd().readFileAlloc(io, out, a, .unlimited);
+    const music = result.sectors[6];
+    const data_start = bytes.len - music.offset - music.size;
+    const sector = result.sectors[5];
+    const keys = bytes[data_start + sector.offset ..][0..sector.size];
+    const record_size = keys[0];
+    // Three distinct voice paths, each with four language keys.
+    try std.testing.expectEqual(@as(usize, 12), (keys.len - 1) / record_size);
+    for ([_]u64{ 0x23ee2e30638cb6b7, 0xa252fa3a0496e359, 0x58da61c5e0668d3d }) |expected| {
+        var found = false;
+        var pos: usize = 1;
+        while (pos < keys.len) : (pos += record_size) {
+            if (std.mem.readInt(u64, keys[pos + 4 ..][0..8], .big) == expected) {
+                // The known hashes belong to Chinese(PRC), language index 0.
+                try std.testing.expectEqual(@as(u8, 0), keys[pos + 3]);
+                found = true;
+                break;
+            }
+        }
+        try std.testing.expect(found);
+    }
 }
